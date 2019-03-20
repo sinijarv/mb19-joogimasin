@@ -14,20 +14,22 @@ unsigned int localPort = 8888;      // local port to listen on
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet,
 char ReplyBuffer[] = "acknowledged";        // a string to send back
 String wordCompare = "jook";
-int relay1Pin = 8;
-int relay2Pin = 9;
+int upperValveRelay = 8;
+int lowerValveRelay = 9;
 
 // An EthernetUDP instance to let us send and receive packets over UDP
 EthernetUDP Udp;
 
 void setup() {
-  pinMode(relay1Pin, OUTPUT);
-  pinMode(relay2Pin, OUTPUT);
+  pinMode(upperValveRelay, OUTPUT);
+  pinMode(lowerValveRelay, OUTPUT);
   
   startEthernet();
+  valveClosed("lower", true);
 }
 
 void loop() {
+  motorEndReached();
   // if there's data available, read a packet
   int packetSize = Udp.parsePacket();
   if (packetSize) {
@@ -51,8 +53,7 @@ void loop() {
     Serial.println(packetBuffer);
     
     if(packetToString == wordCompare) {
-      digitalWrite(relay1Pin, HIGH);
-      digitalWrite(relay2Pin, HIGH);
+      
     }
 
     /*Commented out, because it crashes router*/
@@ -88,6 +89,33 @@ void startEthernet() {
   // start UDP
   Udp.begin(localPort);
 }
+
+bool motorEndReached() {
+  // read the input on analog pin 0:
+  int sensorValue = analogRead(A0);
+  if (sensorValue <= 10) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+void valveClosed(String valve, bool state) {
+  int relay = 0;
+  if (valve == "upper") {
+    relay = upperValveRelay;
+  } else if (valve == "lower") {
+    relay = lowerValveRelay;
+  }
+  
+  if (state == true) {
+    digitalWrite(relay, HIGH);
+  } else if (state == false) {
+    digitalWrite(relay, LOW);
+  }
+}
+
+
 
 
 /*
