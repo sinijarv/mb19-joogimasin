@@ -17,15 +17,26 @@ String wordCompare = "jook";
 int upperValveRelay = 8;
 int lowerValveRelay = 9;
 
+const int stepPin = 6; 
+const int dirPin = 5; 
+const int enPin = 7;
+
 // An EthernetUDP instance to let us send and receive packets over UDP
 EthernetUDP Udp;
 
 void setup() {
   pinMode(upperValveRelay, OUTPUT);
   pinMode(lowerValveRelay, OUTPUT);
+  digitalWrite(upperValveRelay, HIGH);
+  digitalWrite(lowerValveRelay, HIGH);
+
+  pinMode(stepPin,OUTPUT); 
+  pinMode(dirPin,OUTPUT);
+  pinMode(enPin,OUTPUT);
   
   startEthernet();
   valveClosed("lower", true);
+  initSyringe();
 }
 
 void loop() {
@@ -100,6 +111,11 @@ bool motorEndReached() {
   }
 }
 
+/*!
+ * Controls the valves
+ * param valve - choose the valve to use
+ * param state - true if valve is closed, false if valve is open
+ */
 void valveClosed(String valve, bool state) {
   int relay = 0;
   if (valve == "upper") {
@@ -112,6 +128,46 @@ void valveClosed(String valve, bool state) {
     digitalWrite(relay, HIGH);
   } else if (state == false) {
     digitalWrite(relay, LOW);
+  }
+}
+
+/*!
+ * Initializes the syringes on first startup.
+ * Pulls both syringes up until first syringe reaches
+ * end-state detection sensor. Second syringe has to be
+ * adjusted to the same level as the first one for it to work.
+ */
+void initSyringe() {
+  digitalWrite(dirPin,HIGH);
+  bool endReached = false;
+  int sensorValue = 0;
+  while (!endReached) {
+    sensorValue = analogRead(A0);
+    digitalWrite(stepPin,HIGH); 
+    delayMicroseconds(500); 
+    digitalWrite(stepPin,LOW); 
+    delayMicroseconds(500);
+    if (sensorValue < 10) {
+      endReached = true;
+    }
+  }
+  delay(500);
+  
+  digitalWrite(dirPin,LOW);
+  for(int x = 0; x < 10800; x++) {
+    digitalWrite(stepPin,HIGH);
+    delayMicroseconds(500);
+    digitalWrite(stepPin,LOW);
+    delayMicroseconds(500);
+  }
+  delay(500);
+
+  digitalWrite(dirPin,HIGH);
+  for(int x = 0; x < 6000; x++) {
+    digitalWrite(stepPin,HIGH);
+    delayMicroseconds(500);
+    digitalWrite(stepPin,LOW);
+    delayMicroseconds(500);
   }
 }
 
