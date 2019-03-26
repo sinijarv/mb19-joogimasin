@@ -40,7 +40,6 @@ void setup() {
 }
 
 void loop() {
-  motorEndReached();
   // if there's data available, read a packet
   int packetSize = Udp.parsePacket();
   if (packetSize) {
@@ -101,16 +100,6 @@ void startEthernet() {
   Udp.begin(localPort);
 }
 
-bool motorEndReached() {
-  // read the input on analog pin 0:
-  int sensorValue = analogRead(A0);
-  if (sensorValue <= 10) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
 /*!
  * Controls the valves
  * param valve - choose the valve to use
@@ -138,6 +127,7 @@ void valveClosed(String valve, bool state) {
  * adjusted to the same level as the first one for it to work.
  */
 void initSyringe() {
+  digitalWrite(enPin,LOW);
   digitalWrite(dirPin,HIGH);
   bool endReached = false;
   int sensorValue = 0;
@@ -154,7 +144,7 @@ void initSyringe() {
   delay(500);
   
   digitalWrite(dirPin,LOW);
-  for(int x = 0; x < 10800; x++) {
+  for(int x = 0; x < 5600; x++) {
     digitalWrite(stepPin,HIGH);
     delayMicroseconds(500);
     digitalWrite(stepPin,LOW);
@@ -163,12 +153,14 @@ void initSyringe() {
   delay(500);
 
   digitalWrite(dirPin,HIGH);
-  for(int x = 0; x < 6000; x++) {
+  for(int x = 0; x < 3000; x++) {
     digitalWrite(stepPin,HIGH);
     delayMicroseconds(500);
     digitalWrite(stepPin,LOW);
     delayMicroseconds(500);
   }
+  delay(500);
+  digitalWrite(enPin,HIGH);
 }
 
 
