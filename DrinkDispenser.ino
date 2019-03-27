@@ -35,13 +35,13 @@ void setup() {
   pinMode(enPin,OUTPUT);
   
   startEthernet();
-  valveClosed("lower", true);
   initSyringe();
 }
 
 void loop() {
   // if there's data available, read a packet
   int packetSize = Udp.parsePacket();
+  
   if (packetSize) {
     Serial.print("Received packet of size ");
     Serial.println(packetSize);
@@ -63,7 +63,7 @@ void loop() {
     Serial.println(packetBuffer);
     
     if(packetToString == wordCompare) {
-      
+      dispenseDrink();
     }
 
     /*Commented out, because it crashes router*/
@@ -131,6 +131,12 @@ void initSyringe() {
   digitalWrite(dirPin,HIGH);
   bool endReached = false;
   int sensorValue = 0;
+
+  valveClosed("upper", false);
+  delay(500);
+  valveClosed("lower", true);
+  delay(500);
+
   while (!endReached) {
     sensorValue = analogRead(A0);
     digitalWrite(stepPin,HIGH); 
@@ -159,8 +165,47 @@ void initSyringe() {
     digitalWrite(stepPin,LOW);
     delayMicroseconds(500);
   }
+  
+  valveClosed("upper", true);
   delay(500);
   digitalWrite(enPin,HIGH);
+}
+
+void dispenseDrink() {
+  digitalWrite(enPin,LOW);
+
+  valveClosed("upper", true);
+  delay(500);
+  valveClosed("lower", false);
+  delay(500);
+  
+  digitalWrite(dirPin,LOW);
+  for(int x = 0; x < 3000; x++) {
+    digitalWrite(stepPin,HIGH);
+    delayMicroseconds(500);
+    digitalWrite(stepPin,LOW);
+    delayMicroseconds(500);
+  }
+  delay(500);
+
+  valveClosed("lower", true);
+  delay(500);
+  valveClosed("upper", false);
+  delay(500);
+
+  digitalWrite(dirPin,HIGH);
+  for(int x = 0; x < 3000; x++) {
+    digitalWrite(stepPin,HIGH);
+    delayMicroseconds(500);
+    digitalWrite(stepPin,LOW);
+    delayMicroseconds(500);
+  }
+  delay(500);
+
+  valveClosed("upper", true);
+  delay(500);
+  digitalWrite(enPin,HIGH);
+
 }
 
 
