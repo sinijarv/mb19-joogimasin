@@ -12,8 +12,22 @@ unsigned int localPort = 8888;      // local port to listen on
 
 // buffers for receiving and sending data
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet,
-char ReplyBuffer[] = "acknowledged";        // a string to send back
 String wordCompare = "jook";
+String requestGlassSize20 = "20ml";
+String requestGlassSize30 = "30ml";
+String requestGlassSize40 = "40ml";
+
+struct glassSizes {
+  enum {ML20, ML30, ML40};
+} glassSize;
+
+// default shot glass size at startup
+int useGlassSize = glassSize.ML30;
+int lastUsedGlassSize = glassSize.ML30;
+
+char ReplyBuffer[] = "acknowledged";        // a string to send back
+int packetSize = 0;
+
 const int upperValveRelay = 8;
 const int lowerValveRelay = 9;
 
@@ -28,6 +42,12 @@ struct valveTypes {
 const int stepPin = 6; 
 const int dirPin = 5; 
 const int enPin = 7;
+
+struct motorImpulseAmount {
+  enum {ML20 = 2000, ML30 = 3000, ML40 = 4000};
+} motorImpulseAmount;
+
+int motorTurnsValue = motorImpulseAmount.ML30;
 
 const int motorSensorPin = A0;
 const int cupSensorPin = A1;
@@ -52,46 +72,51 @@ void setup() {
   pinMode(enPin,OUTPUT);
   
   startEthernet();
-  initSyringe();
+  calibrateSyringes(motorTurnsValue);
 }
 
 void loop() {
   // if there's data available, read a packet
-  int packetSize = Udp.parsePacket();
+  packetSize = Udp.parsePacket();
 
   if (packetSize) {
-    Serial.print("Received packet of size ");
-    Serial.println(packetSize);
-    Serial.print("From ");
-    IPAddress remote = Udp.remoteIP();
-    for (int i=0; i < 4; i++) {
-      Serial.print(remote[i], DEC);
-      if (i < 3) {
-        Serial.print(".");
-      }
-    }
-    Serial.print(", port ");
-    Serial.println(Udp.remotePort());
-
-    // read the packet into packetBufffer
     Udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
     String packetToString(packetBuffer);
-    Serial.println("Contents:");
-    Serial.println(packetBuffer);
-    
+
+    if (packetToString == requestGlassSize20) {
+      useGlassSize = glassSize.ML20;
+      motorTurnsValue = motorImpulseAmount.ML20;
+      messageToEthernet("Changing shot size to 2cl");
+    } else if (packetToString == requestGlassSize30) {
+      useGlassSize = glassSize.ML30;
+      motorTurnsValue = motorImpulseAmount.ML30;
+      messageToEthernet("Changing shot size to 3cl");
+    } else if (packetToString == requestGlassSize40) {
+      useGlassSize = glassSize.ML40;
+      motorTurnsValue = motorImpulseAmount.ML40;
+      messageToEthernet("Changing shot size to 4cl");
+    }
+
+    if (useGlassSize != lastUsedGlassSize) {
+      calibrateSyringes(motorTurnsValue);
+      useGlassSize = lastUsedGlassSize;
+      messageToEthernet("Change done!");
+    }
+
+    debugEthernet();
+
     if(packetToString == wordCompare) {
+      messageToEthernet("Starting dispensing. Waiting for cup...");
       while (!cupDetected()) {
         // Wait until cup (or accidentally something else...) detected
       }
+      messageToEthernet("Cup detected. Now dispensing.");
       delay(2000);
-      dispenseDrink();
+      dispenseDrink(motorTurnsValue);
+      messageToEthernet("Dispense done!");
     }
 
-    /*Commented out, because it crashes router*/
-    // send a reply to the IP address and port that sent us the packet we received
-    // Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
-    // Udp.write(ReplyBuffer);
-    // Udp.endPacket();
+    packetToString = "";
   }
   delay(10);
 }
@@ -121,10 +146,34 @@ void startEthernet() {
   Udp.begin(localPort);
 }
 
+void debugEthernet() {
+  Serial.print("Received packet of size ");
+  Serial.println(packetSize);
+  Serial.print("From ");
+  IPAddress remote = Udp.remoteIP();
+  for (int i = 0; i < 4; i++) {
+    Serial.print(remote[i], DEC);
+    if (i < 3) {
+      Serial.print(".");
+    }
+  }
+  Serial.print(", port ");
+  Serial.println(Udp.remotePort());
+
+  Serial.println("Contents:");
+  Serial.println(packetBuffer);
+}
+
+void messageToEthernet(const char *message) {
+  Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+  Udp.write(message);
+  Udp.endPacket();
+}
+
 /*!
  * Controls the valves
- * param valve - choose the valve to use
- * param state - true if valve is closed, false if valve is open
+ * param valve - select valve to use: SHOT_GLASS or TANK
+ * param state - select valve state: OPEN or CLOSE
  */
 void setValveState(int valve, int state) {
   int relay = 0;
@@ -145,9 +194,9 @@ void setValveState(int valve, int state) {
  * Initializes the syringes on first startup.
  * Pulls both syringes up until first syringe reaches
  * end-state detection sensor. Second syringe has to be
- * adjusted to the same level as the first one for it to work.
+ * manually calibrated to the same level as the first one for it to work.
  */
-void initSyringe() {
+void calibrateSyringes(int motorTurnAmount) {
   digitalWrite(enPin,LOW);
   digitalWrite(dirPin,HIGH);
   bool endReached = false;
@@ -179,7 +228,7 @@ void initSyringe() {
   delay(500);
 
   digitalWrite(dirPin,HIGH);
-  for (int x = 0; x < 3000; x++) {
+  for (int x = 0; x < motorTurnAmount; x++) {
     digitalWrite(stepPin,HIGH);
     delayMicroseconds(500);
     digitalWrite(stepPin,LOW);
@@ -191,7 +240,7 @@ void initSyringe() {
   digitalWrite(enPin,HIGH);
 }
 
-void dispenseDrink() {
+void dispenseDrink(int motorTurnAmount) {
   digitalWrite(enPin,LOW);
 
   setValveState(valveType.TANK, valveState.CLOSE);
@@ -200,7 +249,7 @@ void dispenseDrink() {
   delay(500);
   
   digitalWrite(dirPin,LOW);
-  for (int x = 0; x < 3000; x++) {
+  for (int x = 0; x < motorTurnAmount; x++) {
     digitalWrite(stepPin,HIGH);
     delayMicroseconds(500);
     digitalWrite(stepPin,LOW);
@@ -214,7 +263,7 @@ void dispenseDrink() {
   delay(500);
 
   digitalWrite(dirPin,HIGH);
-  for (int x = 0; x < 3000; x++) {
+  for (int x = 0; x < motorTurnAmount; x++) {
     digitalWrite(stepPin,HIGH);
     delayMicroseconds(500);
     digitalWrite(stepPin,LOW);
