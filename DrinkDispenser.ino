@@ -14,12 +14,29 @@ unsigned int localPort = 8888;      // local port to listen on
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet,
 char ReplyBuffer[] = "acknowledged";        // a string to send back
 String wordCompare = "jook";
-int upperValveRelay = 8;
-int lowerValveRelay = 9;
+const int upperValveRelay = 8;
+const int lowerValveRelay = 9;
+
+struct valveStates {
+  enum {OPEN, CLOSE};
+} valveState;
+
+struct valveTypes {
+  enum {SHOT_GLASS, TANK};
+} valveType;
 
 const int stepPin = 6; 
 const int dirPin = 5; 
 const int enPin = 7;
+
+const int motorSensorPin = A0;
+const int cupSensorPin = A1;
+
+const int motorSensorAdcLimit = 10;
+const int cupSensorAdcLimit = 700;
+
+int motorSensorAdcRead = 0;
+int cupSensorAdcRead = 0;
 
 // An EthernetUDP instance to let us send and receive packets over UDP
 EthernetUDP Udp;
@@ -41,7 +58,7 @@ void setup() {
 void loop() {
   // if there's data available, read a packet
   int packetSize = Udp.parsePacket();
-  
+
   if (packetSize) {
     Serial.print("Received packet of size ");
     Serial.println(packetSize);
@@ -63,6 +80,10 @@ void loop() {
     Serial.println(packetBuffer);
     
     if(packetToString == wordCompare) {
+      while (!cupDetected()) {
+        // Wait until cup (or accidentally something else...) detected
+      }
+      delay(2000);
       dispenseDrink();
     }
 
@@ -105,17 +126,17 @@ void startEthernet() {
  * param valve - choose the valve to use
  * param state - true if valve is closed, false if valve is open
  */
-void valveClosed(String valve, bool state) {
+void setValveState(int valve, int state) {
   int relay = 0;
-  if (valve == "upper") {
+  if (valve == valveType.TANK) {
     relay = upperValveRelay;
-  } else if (valve == "lower") {
+  } else if (valve == valveType.SHOT_GLASS) {
     relay = lowerValveRelay;
   }
   
-  if (state == true) {
+  if (state == valveState.CLOSE) {
     digitalWrite(relay, HIGH);
-  } else if (state == false) {
+  } else if (state == valveState.OPEN) {
     digitalWrite(relay, LOW);
   }
 }
@@ -130,27 +151,26 @@ void initSyringe() {
   digitalWrite(enPin,LOW);
   digitalWrite(dirPin,HIGH);
   bool endReached = false;
-  int sensorValue = 0;
 
-  valveClosed("upper", false);
+  setValveState(valveType.TANK, valveState.OPEN);
   delay(500);
-  valveClosed("lower", true);
+  setValveState(valveType.SHOT_GLASS, valveState.CLOSE);
   delay(500);
 
   while (!endReached) {
-    sensorValue = analogRead(A0);
+    motorSensorAdcRead = analogRead(motorSensorPin);
     digitalWrite(stepPin,HIGH); 
     delayMicroseconds(500); 
     digitalWrite(stepPin,LOW); 
     delayMicroseconds(500);
-    if (sensorValue < 10) {
+    if (motorSensorAdcRead < motorSensorAdcLimit) {
       endReached = true;
     }
   }
   delay(500);
   
   digitalWrite(dirPin,LOW);
-  for(int x = 0; x < 5600; x++) {
+  for (int x = 0; x < 5600; x++) {
     digitalWrite(stepPin,HIGH);
     delayMicroseconds(500);
     digitalWrite(stepPin,LOW);
@@ -159,14 +179,14 @@ void initSyringe() {
   delay(500);
 
   digitalWrite(dirPin,HIGH);
-  for(int x = 0; x < 3000; x++) {
+  for (int x = 0; x < 3000; x++) {
     digitalWrite(stepPin,HIGH);
     delayMicroseconds(500);
     digitalWrite(stepPin,LOW);
     delayMicroseconds(500);
   }
   
-  valveClosed("upper", true);
+  setValveState(valveType.TANK, valveState.CLOSE);
   delay(500);
   digitalWrite(enPin,HIGH);
 }
@@ -174,13 +194,13 @@ void initSyringe() {
 void dispenseDrink() {
   digitalWrite(enPin,LOW);
 
-  valveClosed("upper", true);
+  setValveState(valveType.TANK, valveState.CLOSE);
   delay(500);
-  valveClosed("lower", false);
+  setValveState(valveType.SHOT_GLASS, valveState.OPEN);
   delay(500);
   
   digitalWrite(dirPin,LOW);
-  for(int x = 0; x < 3000; x++) {
+  for (int x = 0; x < 3000; x++) {
     digitalWrite(stepPin,HIGH);
     delayMicroseconds(500);
     digitalWrite(stepPin,LOW);
@@ -188,13 +208,13 @@ void dispenseDrink() {
   }
   delay(500);
 
-  valveClosed("lower", true);
+  setValveState(valveType.SHOT_GLASS, valveState.CLOSE);
   delay(500);
-  valveClosed("upper", false);
+  setValveState(valveType.TANK, valveState.OPEN);
   delay(500);
 
   digitalWrite(dirPin,HIGH);
-  for(int x = 0; x < 3000; x++) {
+  for (int x = 0; x < 3000; x++) {
     digitalWrite(stepPin,HIGH);
     delayMicroseconds(500);
     digitalWrite(stepPin,LOW);
@@ -202,10 +222,19 @@ void dispenseDrink() {
   }
   delay(500);
 
-  valveClosed("upper", true);
+  setValveState(valveType.TANK, valveState.CLOSE);
   delay(500);
   digitalWrite(enPin,HIGH);
+}
 
+bool cupDetected() {
+  cupSensorAdcRead = analogRead(cupSensorPin);
+  if (cupSensorAdcRead > cupSensorAdcLimit) {
+    return true;
+  }
+  else {
+    return false;
+  }
 }
 
 
