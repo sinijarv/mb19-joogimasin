@@ -11,6 +11,7 @@ IPAddress ip(192, 168, 0, 177);
 unsigned int localPort = 8888;      // local port to listen on
 
 // buffers for receiving and sending data
+int packetSize = 0;
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet,
 String wordCompare = "jook";
 String requestGlassSize20 = "20ml";
@@ -24,9 +25,6 @@ struct glassSizes {
 // default shot glass size at startup
 int useGlassSize = glassSize.ML30;
 int lastUsedGlassSize = glassSize.ML30;
-
-char ReplyBuffer[] = "acknowledged";        // a string to send back
-int packetSize = 0;
 
 const int upperValveRelay = 8;
 const int lowerValveRelay = 9;
