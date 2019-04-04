@@ -78,8 +78,11 @@ void loop() {
   packetSize = Udp.parsePacket();
 
   if (packetSize) {
+    memset(packetBuffer, 0, sizeof(packetBuffer));
     Udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
     String packetToString(packetBuffer);
+
+    packetToString.trim();
 
     if (packetToString == "ping") {
       messageToEthernet("pong");
@@ -101,7 +104,7 @@ void loop() {
 
     if (useGlassSize != lastUsedGlassSize) {
       calibrateSyringes(motorTurnsValue);
-      useGlassSize = lastUsedGlassSize;
+      lastUsedGlassSize = useGlassSize;
       messageToEthernet("Change done!");
     }
 
