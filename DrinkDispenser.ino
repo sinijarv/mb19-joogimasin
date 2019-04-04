@@ -81,6 +81,10 @@ void loop() {
     Udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
     String packetToString(packetBuffer);
 
+    if (packetToString == "ping") {
+      messageToEthernet("pong");
+    }
+
     if (packetToString == requestGlassSize20) {
       useGlassSize = glassSize.ML20;
       motorTurnsValue = motorImpulseAmount.ML20;
@@ -111,7 +115,14 @@ void loop() {
       messageToEthernet("Cup detected. Now dispensing.");
       delay(2000);
       dispenseDrink(motorTurnsValue);
-      messageToEthernet("Dispense done!");
+      messageToEthernet("Dispense done! Remove cup...");
+
+      while (cupDetected()) {
+        // Wait for cup to be removed
+      }
+      messageToEthernet("Cup removed!");
+      delay(5000);
+      messageToEthernet("Ready for next!");
     }
 
     packetToString = "";
