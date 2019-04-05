@@ -51,7 +51,8 @@ const int motorSensorPin = A0;
 const int cupSensorPin = A1;
 
 const int motorSensorAdcLimit = 10;
-const int cupSensorAdcLimit = 700;
+const int cupSensorDetectLimit = 300;
+const int cupSensorRemoveLimit = 150;
 
 int motorSensorAdcRead = 0;
 int cupSensorAdcRead = 0;
@@ -112,7 +113,7 @@ void loop() {
 
     if(packetToString == wordCompare) {
       messageToEthernet("Starting dispensing. Waiting for cup...");
-      while (!cupDetected()) {
+      while (!cupAddDetected()) {
         // Wait until cup (or accidentally something else...) detected
       }
       messageToEthernet("Cup detected. Now dispensing.");
@@ -120,7 +121,7 @@ void loop() {
       dispenseDrink(motorTurnsValue);
       messageToEthernet("Dispense done! Remove cup...");
 
-      while (cupDetected()) {
+      while (!cupRemoveDetected()) {
         // Wait for cup to be removed
       }
       messageToEthernet("Cup removed!");
@@ -288,14 +289,18 @@ void dispenseDrink(int motorTurnAmount) {
   digitalWrite(enPin,HIGH);
 }
 
-bool cupDetected() {
+bool cupAddDetected() {
   cupSensorAdcRead = analogRead(cupSensorPin);
-  if (cupSensorAdcRead > cupSensorAdcLimit) {
-    return true;
-  }
-  else {
-    return false;
-  }
+  Serial.print("detect add: ");
+  Serial.println(cupSensorAdcRead);
+  return cupSensorAdcRead > cupSensorDetectLimit;
+}
+
+bool cupRemoveDetected() {
+  cupSensorAdcRead = analogRead(cupSensorPin);
+  Serial.print("detect remove: ");
+  Serial.println(cupSensorAdcRead);
+  return cupSensorAdcRead < cupSensorRemoveLimit;
 }
 
 
