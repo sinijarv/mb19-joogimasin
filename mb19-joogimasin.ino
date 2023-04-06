@@ -26,9 +26,6 @@ struct glassSizes {
 int useGlassSize = glassSize.ML30;
 int lastUsedGlassSize = glassSize.ML30;
 
-const int upperValveRelay = 8;
-const int lowerValveRelay = 9;
-
 struct valveStates {
   enum {OPEN, CLOSE};
 } valveState;
@@ -61,11 +58,6 @@ int cupSensorAdcRead = 0;
 EthernetUDP Udp;
 
 void setup() {
-  pinMode(upperValveRelay, OUTPUT);
-  pinMode(lowerValveRelay, OUTPUT);
-  digitalWrite(upperValveRelay, HIGH);
-  digitalWrite(lowerValveRelay, HIGH);
-
   pinMode(stepPin,OUTPUT); 
   pinMode(dirPin,OUTPUT);
   pinMode(enPin,OUTPUT);
@@ -184,26 +176,6 @@ void messageToEthernet(const char *message) {
 }
 
 /*!
- * Controls the valves
- * param valve - select valve to use: SHOT_GLASS or TANK
- * param state - select valve state: OPEN or CLOSE
- */
-void setValveState(int valve, int state) {
-  int relay = 0;
-  if (valve == valveType.TANK) {
-    relay = upperValveRelay;
-  } else if (valve == valveType.SHOT_GLASS) {
-    relay = lowerValveRelay;
-  }
-  
-  if (state == valveState.CLOSE) {
-    digitalWrite(relay, HIGH);
-  } else if (state == valveState.OPEN) {
-    digitalWrite(relay, LOW);
-  }
-}
-
-/*!
  * Initializes the syringes on first startup.
  * Pulls both syringes up until first syringe reaches
  * end-state detection sensor. Second syringe has to be
@@ -213,11 +185,6 @@ void calibrateSyringes(int motorTurnAmount) {
   digitalWrite(enPin,LOW);
   digitalWrite(dirPin,HIGH);
   bool endReached = false;
-
-  setValveState(valveType.TANK, valveState.OPEN);
-  delay(500);
-  setValveState(valveType.SHOT_GLASS, valveState.CLOSE);
-  delay(500);
 
   while (!endReached) {
     motorSensorAdcRead = analogRead(motorSensorPin);
@@ -247,20 +214,11 @@ void calibrateSyringes(int motorTurnAmount) {
     digitalWrite(stepPin,LOW);
     delayMicroseconds(500);
   }
-  
-  setValveState(valveType.TANK, valveState.CLOSE);
-  delay(500);
   digitalWrite(enPin,HIGH);
 }
 
 void dispenseDrink(int motorTurnAmount) {
   digitalWrite(enPin,LOW);
-
-  setValveState(valveType.TANK, valveState.CLOSE);
-  delay(500);
-  setValveState(valveType.SHOT_GLASS, valveState.OPEN);
-  delay(500);
-  
   digitalWrite(dirPin,LOW);
   for (int x = 0; x < motorTurnAmount; x++) {
     digitalWrite(stepPin,HIGH);
@@ -268,11 +226,6 @@ void dispenseDrink(int motorTurnAmount) {
     digitalWrite(stepPin,LOW);
     delayMicroseconds(500);
   }
-  delay(500);
-
-  setValveState(valveType.SHOT_GLASS, valveState.CLOSE);
-  delay(500);
-  setValveState(valveType.TANK, valveState.OPEN);
   delay(500);
 
   digitalWrite(dirPin,HIGH);
@@ -283,10 +236,6 @@ void dispenseDrink(int motorTurnAmount) {
     delayMicroseconds(500);
   }
   delay(500);
-
-  setValveState(valveType.TANK, valveState.CLOSE);
-  delay(500);
-  digitalWrite(enPin,HIGH);
 }
 
 bool cupAddDetected() {
