@@ -6,7 +6,7 @@
 byte mac[] = {
   0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
 };
-IPAddress ip(192, 168, 0, 177);
+IPAddress ip(10, 0, 0, 51);
 
 unsigned int localPort = 8888;      // local port to listen on
 
@@ -47,6 +47,8 @@ int motorTurnsValue = motorImpulseAmount.ML30;
 const int motorSensorPin = A0;
 const int cupSensorPin = A1;
 
+const int valveRelay = 8;
+
 const int motorSensorAdcLimit = 10;
 const int cupSensorDetectLimit = 300;
 const int cupSensorRemoveLimit = 150;
@@ -61,7 +63,10 @@ void setup() {
   pinMode(stepPin,OUTPUT); 
   pinMode(dirPin,OUTPUT);
   pinMode(enPin,OUTPUT);
-  
+
+  pinMode(valveRelay, OUTPUT);
+  digitalWrite(valveRelay, HIGH);
+
   startEthernet();
   calibrateSyringes(motorTurnsValue);
 }
@@ -196,8 +201,8 @@ void calibrateSyringes(int motorTurnAmount) {
       endReached = true;
     }
   }
+  digitalWrite(valveRelay,LOW);
   delay(500);
-  
   digitalWrite(dirPin,LOW);
   for (int x = 0; x < 5600; x++) {
     digitalWrite(stepPin,HIGH);
@@ -205,8 +210,8 @@ void calibrateSyringes(int motorTurnAmount) {
     digitalWrite(stepPin,LOW);
     delayMicroseconds(500);
   }
+  digitalWrite(valveRelay,HIGH);
   delay(500);
-
   digitalWrite(dirPin,HIGH);
   for (int x = 0; x < motorTurnAmount; x++) {
     digitalWrite(stepPin,HIGH);
@@ -226,8 +231,8 @@ void dispenseDrink(int motorTurnAmount) {
     digitalWrite(stepPin,LOW);
     delayMicroseconds(500);
   }
+  digitalWrite(valveRelay,LOW);
   delay(500);
-
   digitalWrite(dirPin,HIGH);
   for (int x = 0; x < motorTurnAmount; x++) {
     digitalWrite(stepPin,HIGH);
@@ -235,7 +240,9 @@ void dispenseDrink(int motorTurnAmount) {
     digitalWrite(stepPin,LOW);
     delayMicroseconds(500);
   }
+  digitalWrite(valveRelay,HIGH);
   delay(500);
+  digitalWrite(enPin,HIGH);
 }
 
 bool cupAddDetected() {
@@ -251,46 +258,3 @@ bool cupRemoveDetected() {
   Serial.println(cupSensorAdcRead);
   return cupSensorAdcRead < cupSensorRemoveLimit;
 }
-
-
-
-
-/*
-  Processing sketch to run with this example
- =====================================================
-
- // Processing UDP example to send and receive string data from Arduino
- // press any key to send the "Hello Arduino" message
-
-
- import hypermedia.net.*;
-
- UDP udp;  // define the UDP object
-
-
- void setup() {
- udp = new UDP( this, 6000 );  // create a new datagram connection on port 6000
- //udp.log( true ); 		// <-- printout the connection activity
- udp.listen( true );           // and wait for incoming message
- }
-
- void draw()
- {
- }
-
- void keyPressed() {
- String ip       = "192.168.1.177";	// the remote IP address
- int port        = 8888;		// the destination port
-
- udp.send("Hello World", ip, port );   // the message to send
-
- }
-
- void receive( byte[] data ) { 			// <-- default handler
- //void receive( byte[] data, String ip, int port ) {	// <-- extended handler
-
- for(int i=0; i < data.length; i++)
- print(char(data[i]));
- println();
- }
- */
